@@ -1,0 +1,286 @@
+\section{Overview}
+
+This chapter evaluates MEVRES in two ways. We first assess the protocol qualitatively against a list of criteria derived from the MEV problem. We then report results from a prototype implementation and a market simulation that compares MEVRES with an unprotected DEX over 1{,}000 independent runs, studies two design parameters, and models a sequencer-based design whose sequencer may be compromised.
+
+\section{Criteria for Evaluation}
+
+\begin{enumerate}
+    \item \textbf{Front-running:} can an outside party place a trade before a user's trade to profit from it?
+    \item \textbf{Back-running:} can an outside party place a trade immediately after a user's trade to profit from it?
+    \item \textbf{Sandwich attacks:} can an outside party sandwich a user and keep the profit?
+    \item \textbf{Decentralization:} does the system rely on a trusted intermediary?
+    \item \textbf{Privacy:} do transaction details stay secret until they can no longer be exploited?
+    \item \textbf{MEV distribution:} does the extracted value return to users and liquidity providers?
+    \item \textbf{Single point of failure:} does compromising one party break the guarantees?
+    \item \textbf{Execution speed:} is latency comparable to an ordinary AMM trade?
+\end{enumerate}
+
+The existing approaches were assessed against these criteria in Chapter~\ref{ch:literature} and Table~\ref{tab:comparison}. The rest of this section assesses MEVRES.
+
+\section{Qualitative Analysis of MEVRES}
+
+\paragraph{Front-running.} In Step 1 the direction, amount and slippage tolerance of a trade are encrypted before the transaction is published. An observer cannot tell whether a transaction is worth front-running, or in which direction. By Proposition~\ref{prop:privacy} this holds against any coalition that includes at most $t$ threshold nodes.
+
+\paragraph{Back-running.} The bundle of Step 4 is atomic, so no outside trade can be placed between its legs. Its last leg returns the pool to $s_0$, so no price dislocation is left behind for an outside party to exploit.
+
+\paragraph{Sandwich attacks.} MEVRES does not eliminate the sandwich: every trade is executed inside one. What it removes is the \emph{uncompensated} sandwich. Only the auction winner may perform it, the user is guaranteed their stated minimum, and the winner's payment is refunded. By Theorem~\ref{thm:independence}, one user's bundle creates no exploitable condition for another user in the same block.
+
+\paragraph{Decentralization and single point of failure.} There is no sequencer. Decryption requires $t+1$ of $n$ nodes, so corrupting up to $t$ nodes reveals nothing, and the auction itself is executed by the contract. Breaking privacy requires corrupting $t+1$ nodes simultaneously.
+
+\paragraph{Privacy.} A transaction is unreadable from the moment it is submitted until after the bid deadline. By the time it is decrypted, arbitrageurs can no longer change their reports.
+
+\paragraph{MEV distribution.} Step 5 pays $\alpha\cdot p_j$ to the user and $(1-\alpha)\cdot p_j$ to liquidity providers inside the bundle, and the payment for the rebalancing opportunity goes to liquidity providers.
+
+\paragraph{Execution speed.} A trade settles in the block in which it is included, as on an ordinary AMM, so there is no batch window to wait for. The protocol does add work inside the block: a bidding phase and one round of threshold decryption, and each block can complete only once $t+1$ nodes have responded. We did not measure this overhead; it is discussed as a limitation in Chapter~\ref{ch:conclude}.
+
+\section{Simulation Setup}
+\label{sec:sim-setup}
+
+\subsection{Prototype}
+
+The prototype is a single-page web application written in JavaScript (Appendix~\ref{app:prototype}). It implements the five steps of Chapter~\ref{ch:new}, and its cryptographic operations are executed with the browser's Web Crypto API rather than mocked.
+
+\begin{itemize}
+    \item \textbf{Commitment.} $c=H(TX\,\|\,r)$ with $H$ = SHA-256 and a 256-bit random salt $r$.
+    \item \textbf{Encryption.} The transaction and salt are encrypted with AES-256-GCM~\cite{dworkin2007gcm}. The key is split among $n$ nodes by Shamir secret sharing~\cite{shamir1979share} over $GF(2^8)$, so that any $t+1$ shares reconstruct it and $t$ or fewer reveal nothing.
+    \item \textbf{Auction.} Reports are converted into bids by Equation~\ref{eq:bid} and the winner and payment are set by Equation~\ref{eq:winner}.
+    \item \textbf{Bundle.} The three legs are computed in closed form (Equation~\ref{eq:frontstate}) and the pool is checked to return to $s_0$.
+\end{itemize}
+
+The prototype approximates the threshold scheme with a dealer: the user generates the key and distributes the shares. The protocol of Chapter~\ref{ch:new} assumes distributed key generation instead. The approximation does not affect the economic results, which depend only on whether a transaction is decrypted before or after the bid deadline.
+
+\subsection{Market Model}
+
+Two identical constant product pools receive the same stream of trades and face the same external price path. In each block the external price takes a log-normal step, a fixed number of users trade, and the pool is then rebalanced to the external price. Table~\ref{tab:sim-params} lists the default parameters.
+
+\begin{table}[h]
+\centering
+\caption{Default Simulation Parameters}
+\label{tab:sim-params}
+\begin{tabular}{|L{6.2cm}|L{6.2cm}|}
+\hline
+\textbf{Parameter} & \textbf{Value} \\
+\hline
+Initial pool reserves & 5{,}000 ETH and 15{,}000{,}000 USDC \\
+\hline
+Swap fee $f$ & 0.3\% \\
+\hline
+Blocks per run & 300 \\
+\hline
+Trades per block & 2 (600 trades per run) \\
+\hline
+Trade direction & ETH$\rightarrow$USDC or USDC$\rightarrow$ETH, equally likely \\
+\hline
+Trade size & Log-normal, median 20{,}000 USDC \\
+\hline
+Slippage tolerance & Uniform between 0.3\% and 1.5\% \\
+\hline
+External price volatility & 0.12\% per block \\
+\hline
+Number of arbitrageurs $m$ & 6 \\
+\hline
+Arbitrageur belief noise & 0.15\% around the external price \\
+\hline
+Redistribution parameter $\alpha$ & 0.9 \\
+\hline
+Sandwich gas cost (unprotected pool) & 8 USDC \\
+\hline
+Independent runs & 1{,}000 (different random seeds) \\
+\hline
+\end{tabular}
+\end{table}
+
+The two pools differ only in how MEV is handled.
+\begin{itemize}
+    \item \textbf{Unprotected DEX.} A searcher sandwiches every trade whose extractable value exceeds the gas cost and pushes the user to their minimum output. At the end of each block an arbitrageur moves the pool to the external price and keeps the profit (LVR).
+    \item \textbf{MEVRES.} Every trade is settled through the bundle of Step 4 and its MEV is auctioned. A fraction $\alpha$ of the payment is refunded to the user and the rest to LPs. The end-of-block rebalancing opportunity is auctioned and its payment goes to LPs.
+\end{itemize}
+
+The unprotected baseline is a worst-case attacker: every profitable trade is attacked and the whole slippage tolerance is taken. Sandwich rates observed on real networks are lower, so the gap reported below is an upper bound on the benefit.
+
+\subsection{Metrics}
+
+\begin{itemize}
+    \item \textbf{User cost.} The external fair value of what the user gives up, minus the value of what the user receives including any refund, in basis points (bps) of the fair value. It includes the swap fee and price impact.
+    \item \textbf{LP profit.} Swap fees earned, minus the loss to rebalancing arbitrage, plus auction payments received.
+    \item \textbf{Value split.} The share of auctioned MEV that goes to users, to LPs and to winning arbitrageurs. An arbitrageur's profit is valued at its own belief, following Equation~\ref{eq:value}.
+\end{itemize}
+
+\section{Simulation Results}
+\label{sec:sim-results}
+
+\subsection{A Single Trade}
+
+Table~\ref{tab:single-trade} shows one trade from the prototype: a user sells 25 ETH with a 1\% slippage tolerance while the pool and external prices are both 3{,}000 USDC. The pool quotes 74{,}404.10 USDC and the user's minimum output is 73{,}660.05 USDC.
+
+\begin{table}[h]
+\centering
+\caption{Outcome of a Single 25 ETH Sale}
+\label{tab:single-trade}
+\begin{tabular}{|L{4.6cm}|C{4.4cm}|C{3.2cm}|}
+\hline
+\textbf{Scenario} & \textbf{User receives (USDC)} & \textbf{User cost (bps)} \\
+\hline
+Pool with no MEV (reference) & 74{,}404.10 & 79.5 \\
+\hline
+Unprotected DEX, sandwiched & 73{,}660.05 & 178.7 \\
+\hline
+\textbf{MEVRES} & \textbf{73{,}660.05 + 1{,}096.05 refund} & \textbf{32.5} \\
+\hline
+\end{tabular}
+\end{table}
+
+On the unprotected DEX the searcher takes 744.04 USDC from the user. Under MEVRES the winning arbitrageur pays 1{,}217.84 USDC, the second-highest bid; 1{,}096.05 USDC is refunded to the user and 121.78 USDC goes to LPs. The winner keeps 206.61 USDC. The user ends up better off than in the no-MEV reference, because competing arbitrageurs effectively fill the order close to the external price rather than along the pool's curve.
+
+For the same trade the prototype confirmed that the recomputed hash equals the commitment, that $t$ colluding nodes fail to decrypt the transaction, that the pool returns to $s_0$ after the bundle, and that no misreport between $-2\%$ and $+2\%$ of an arbitrageur's belief earns more than the truthful report. The last check is an empirical confirmation of Theorem~\ref{thm:ic}.
+
+\subsection{Market Simulation}
+
+Figure~\ref{fig:sim-cumulative} shows one representative run. The cumulative cost paid by users grows about four times more slowly under MEVRES. LPs lose money on the unprotected pool, where arbitrage losses exceed fee income, and earn a steady profit under MEVRES.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{sim_cumulative.pdf}
+\caption{One representative run of 300 blocks: (a) cumulative user cost against external fair value and (b) cumulative liquidity provider profit.}
+\label{fig:sim-cumulative}
+\end{figure}
+
+Table~\ref{tab:sim-results} summarises 1{,}000 independent runs. MEVRES gave a lower user cost and a higher LP profit than the unprotected DEX in every run.
+
+\begin{table}[h]
+\centering
+\caption{Results over 1{,}000 Runs (mean, with 5th--95th percentile range)}
+\label{tab:sim-results}
+\begin{tabular}{|L{4.4cm}|C{4.1cm}|C{4.1cm}|}
+\hline
+\textbf{Metric} & \textbf{Unprotected DEX} & \textbf{MEVRES} \\
+\hline
+Average user cost (bps) & 164.2 \newline (155.5 -- 177.4) & 35.9 \newline (34.5 -- 37.5) \\
+\hline
+LP profit per run (USDC) & $-19{,}560$ \newline ($-42{,}800$ -- $-4{,}812$) & $92{,}130$ \newline ($85{,}114$ -- $100{,}372$) \\
+\hline
+Trades sandwiched by an outside searcher & 96.1\% & 0\% \\
+\hline
+Trades missing their limit (of 600) & 19.2 & 0.26 \\
+\hline
+Runs in which LPs lose money & 99\% & 0\% \\
+\hline
+\end{tabular}
+\end{table}
+
+The average user cost falls from 164.2 bps to 35.9 bps, a reduction of about 78\%, or roughly 223{,}900 USDC per run. Figure~\ref{fig:sim-distribution} shows that the two distributions do not overlap. MEVRES outcomes are also more predictable: the standard deviation of user cost is 1.0 bps under MEVRES against 7.3 bps on the unprotected pool.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{sim_distribution.pdf}
+\caption{Distribution of average user cost across 1{,}000 runs.}
+\label{fig:sim-distribution}
+\end{figure}
+
+On the unprotected pool, searchers keep all extracted value. Under MEVRES the auctioned value is split on average as 78.2\% to users, 13.5\% to LPs and 8.4\% to winning arbitrageurs. These shares vary by less than one percentage point across runs.
+
+\subsection{Sensitivity Analysis}
+
+We varied two parameters one at a time, with 300 runs per setting (Figure~\ref{fig:sim-sensitivity}).
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{sim_sensitivity.pdf}
+\caption{Average user cost as a function of (a) the number of competing arbitrageurs and (b) the redistribution parameter $\alpha$.}
+\label{fig:sim-sensitivity}
+\end{figure}
+
+\paragraph{Number of arbitrageurs.} More bidders raise the second-highest bid and therefore the refund (Table~\ref{tab:sim-bidders}). User cost falls from 52.6 bps with two arbitrageurs to 29.3 bps with twelve, and the share kept by arbitrageurs falls from 14.0\% to 7.0\%. Even with two bidders, MEVRES stays far below the unprotected cost of about 164 bps.
+
+\begin{table}[h]
+\centering
+\caption{Effect of the Number of Arbitrageurs (300 runs each)}
+\label{tab:sim-bidders}
+\begin{tabular}{|C{2.6cm}|C{3.2cm}|C{3.2cm}|C{3.2cm}|}
+\hline
+\textbf{Arbitrageurs $m$} & \textbf{User cost (bps)} & \textbf{Share kept by arbitrageurs} & \textbf{LP profit (USDC)} \\
+\hline
+2  & 52.6 & 14.0\% & 78{,}988 \\
+\hline
+4  & 40.7 & 9.5\%  & 86{,}861 \\
+\hline
+6  & 35.9 & 8.3\%  & 92{,}059 \\
+\hline
+8  & 33.1 & 7.7\%  & 96{,}483 \\
+\hline
+12 & 29.3 & 7.0\%  & 102{,}173 \\
+\hline
+\end{tabular}
+\end{table}
+
+\paragraph{Redistribution parameter.} The parameter $\alpha$ trades user welfare against LP income (Table~\ref{tab:sim-alpha}). At $\alpha=1$ the user cost is 21.2 bps. At $\alpha=0$ it is 168.8 bps, slightly \emph{worse} than the unprotected pool (164.3 bps): MEVRES always fills the user at their minimum output, and with $\alpha=0$ the whole payment goes to LPs. MEVRES therefore protects users only when $\alpha$ is large for sandwich MEV, which supports the choice made in Step 5.
+
+\begin{table}[h]
+\centering
+\caption{Effect of the Redistribution Parameter $\alpha$ (300 runs each)}
+\label{tab:sim-alpha}
+\begin{tabular}{|C{2.6cm}|C{4.2cm}|C{4.2cm}|}
+\hline
+\textbf{$\alpha$} & \textbf{User cost (bps)} & \textbf{LP profit (USDC)} \\
+\hline
+0    & 168.8 & 323{,}783 \\
+\hline
+0.25 & 131.9 & 259{,}415 \\
+\hline
+0.50 & 95.0  & 195{,}047 \\
+\hline
+0.75 & 58.1  & 130{,}679 \\
+\hline
+0.90 & 35.9  & 92{,}059 \\
+\hline
+1.00 & 21.2  & 66{,}312 \\
+\hline
+\multicolumn{3}{|c|}{Unprotected DEX for comparison: 164.3 bps, LP profit $-19{,}310$ USDC} \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Comparison with a Sequencer-Based Design}
+
+When its sequencer is honest, a RediSwap-style mechanism runs the same auction and pays the same refunds as MEVRES, so the two give the same economic outcome. The difference lies in what happens when the trust assumption fails. To quantify this we model a sequencer that is compromised for each transaction independently with probability $\rho$. A compromised sequencer reads the transaction and performs the sandwich itself: the user receives their minimum output and nobody is refunded. This is a model of the failure mode described in Chapter~\ref{ch:new}, not an implementation of RediSwap.
+
+\begin{table}[h]
+\centering
+\caption{User Cost and LP Profit when the Sequencer is Compromised with Probability $\rho$ (300 runs each)}
+\label{tab:sim-rediswap}
+\begin{tabular}{|C{3.4cm}|C{4.0cm}|C{4.0cm}|}
+\hline
+\textbf{Compromise probability $\rho$} & \textbf{User cost (bps)} & \textbf{LP profit (USDC)} \\
+\hline
+0 (honest sequencer) & 35.9 & 92{,}059 \\
+\hline
+0.05 & 42.6 & 90{,}764 \\
+\hline
+0.10 & 49.4 & 89{,}450 \\
+\hline
+0.25 & 69.4 & 85{,}564 \\
+\hline
+0.50 & 102.4 & 79{,}172 \\
+\hline
+1.00 & 168.8 & 66{,}312 \\
+\hline
+\multicolumn{3}{|c|}{MEVRES with at most $t$ corrupt nodes: 35.9 bps, LP profit 92{,}059 USDC} \\
+\hline
+\multicolumn{3}{|c|}{Unprotected DEX: 164.3 bps, LP profit $-19{,}310$ USDC} \\
+\hline
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:sim-rediswap} shows that user cost rises linearly with $\rho$, by about 1.3 bps for every percentage point. A fully compromised sequencer leaves users slightly worse off than no protection at all, for the same reason as $\alpha=0$ above. MEVRES keeps the honest-sequencer outcome as long as no more than $t$ of the $n$ nodes are corrupt, which is the practical meaning of removing the single point of failure.
+
+\subsection{Discussion}
+
+The simulation supports the main claims. Users are better off, because the value a searcher would have taken is returned through the auction. LPs are better off, because the rebalancing arbitrage that normally appears as LVR is sold and paid back to them. Truthful reporting was never beaten by a misreport, in line with Theorem~\ref{thm:ic}. And the benefit does not depend on trusting one operator.
+
+The results have limits.
+\begin{itemize}
+    \item They come from a model, not from a testnet deployment. Gas costs and the latency of threshold decryption are not included.
+    \item The unprotected baseline assumes a worst-case attacker, so the measured gap is an upper bound.
+    \item Arbitrageur profit is valued at each bidder's own belief. When beliefs are noisy estimates of one true price, the winner tends to be the bidder who overestimated most (the winner's curse), and its realised profit can be lower than its expected profit.
+    \item Only the random seed, the number of arbitrageurs, $\alpha$ and $\rho$ were varied. Pool depth, volatility and trade-size distribution were held at the values in Table~\ref{tab:sim-params}.
+\end{itemize}

@@ -1,0 +1,47 @@
+\section{Conclusion}
+
+This dissertation addressed a specific weakness in MEV redistribution: mechanisms such as RediSwap return MEV to users and liquidity providers, but only while a private sequencer can be trusted not to read the transactions it carries. MEVRES removes that assumption. A user commits to a trade and encrypts it under a threshold key; arbitrageurs bid without seeing it; the trade is decrypted only after bids are fixed, checked against its commitment, and executed in an atomic sandwich bundle whose proceeds are refunded.
+
+The work has three results.
+
+\begin{itemize}
+    \item \textbf{The mechanism has the properties required of it.} We proved that bundles are independent, that truthful reporting is a dominant strategy, that participation is individually rational for arbitrageurs, users and liquidity providers, and that an arbitrageur gains nothing from bidding under several identities.
+    \item \textbf{It is implementable.} A prototype executes the commitment, encryption, secret sharing, auction and bundle for real, and verifies on every run that the commitment binds, that $t$ nodes cannot decrypt, and that the pool returns to its initial state.
+    \item \textbf{It improves outcomes in simulation.} Over 1{,}000 runs against a worst-case attacker, the average cost of trading fell from 164 to 36 basis points, and liquidity provider returns went from a loss in 99\% of runs to a profit in all of them. About 78\% of the auctioned MEV returned to users and 13\% to liquidity providers. A sequencer-based design matches these figures only while its sequencer is honest, and loses about 1.3 basis points of user cost for every percentage point of compromise probability.
+\end{itemize}
+
+MEVRES does not eliminate the sandwich; it turns it from an attack into a priced service. Arbitrageurs continue to bring external price information into the pool, and are paid a small share for doing so, while the larger share goes back to the parties who would otherwise have borne the cost.
+
+\section{Limitations}
+
+\paragraph{Liveness depends on the threshold nodes.} A block's transactions can be decrypted only once $t+1$ nodes have responded. If fewer respond, pending transactions are cancelled. This is the counterpart of the user's ``last revealer'' problem in plain commit-reveal schemes: MEVRES removes the user's ability to stall, because decryption does not need the user, but nodes can still withhold shares. Penalising nodes that fail to respond is necessary and is not modelled here.
+
+\paragraph{The privacy guarantee is a threshold guarantee.} If $t+1$ nodes collude, they can decrypt transactions before the bid deadline and the protection is lost. The security of the design therefore rests on how the nodes are selected and on what they stand to lose.
+
+\paragraph{Key generation.} The protocol assumes distributed key generation. The prototype uses a dealer instead, which would be a single point of trust in a deployment.
+
+\paragraph{Cost and latency.} A submission carries a commitment and a ciphertext, and each block needs a bidding phase and a decryption round. We did not measure the resulting gas cost or delay.
+
+\paragraph{The refund parameter matters.} Users are always filled at their stated minimum output, so their benefit comes entirely from the refund. With $\alpha=0$ users are slightly worse off than on an unprotected pool. The mechanism protects users only when $\alpha$ is large for sandwich MEV, and when users set slippage tolerances with this in mind.
+
+\paragraph{Competition among arbitrageurs.} The refund equals the second-highest bid, so it shrinks when few arbitrageurs take part. We do not analyse collusion among arbitrageurs, who could agree to bid low, and we do not claim that a user cannot benefit from splitting a trade.
+
+\paragraph{Evaluation.} The results come from a simplified market model with a worst-case attacker. Arbitrageur profit is valued at each bidder's own belief, so the winner's curse is not reflected. Pool depth, volatility and trade sizes were not varied.
+
+\section{Future Work}
+
+\paragraph{Testnet deployment.} Implementing MEVRES as a smart contract with a real threshold committee would give measurements of gas cost, latency and MEV capture that the simulation cannot.
+
+\paragraph{Latency.} The decryption round is on the critical path of every block. Batched decryption, and committees chosen to be small without weakening the threshold assumption, are natural directions.
+
+\paragraph{Adaptive redistribution.} The parameter $\alpha$ is fixed. A rule that sets it per transaction, according to how much of the MEV arises from the user's slippage tolerance and how much from stale pool prices, could improve the split between users and LPs.
+
+\paragraph{Collusion and reserve prices.} A reserve price would limit the damage when few arbitrageurs participate or when they collude. Its effect on incentive compatibility needs to be analysed.
+
+\paragraph{Formal security.} Proposition~\ref{prop:privacy} is supported by a proof sketch. A full proof of the composed protocol under an adaptive adversary would strengthen the theoretical foundation.
+
+\paragraph{Broader evaluation.} The simulation should be extended to other curves, to a range of pool depths and volatilities, and to trade data replayed from a live network.
+
+\section{Closing Remarks}
+
+MEV sits at the meeting point of cryptography, mechanism design and distributed systems, and it will remain a central problem as DeFi grows. This dissertation has shown that redistribution and decentralized privacy, which earlier designs offered separately, can be combined in one mechanism with provable incentive properties. Much remains to be done before such a mechanism can be deployed, and we hope the design and the prototype presented here are a useful starting point.

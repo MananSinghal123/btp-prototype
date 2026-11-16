@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MEVRES Auction Simulator</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600&display=swap">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="wrap">
+<header>
+  <span class="eyebrow">B.Tech project prototype · LNMIIT</span>
+  <h1>MEVRES Auction Simulator</h1>
+  <p class="lede">MEV redistribution through an encrypted, second-price auction on a constant-product pool. Set up a swap, watch the five protocol steps run, and compare what the trader keeps against an unprotected DEX. Hashing, encryption and secret sharing run for real in your browser; the market is simulated.</p>
+</header>
+
+<div class="grid">
+<aside class="rail" aria-label="Single trade settings">
+  <fieldset><legend>Pool (x·y = k)</legend>
+    <div class="f"><label for="x0">ETH reserve</label><input type="number" id="x0" value="5000" min="10" step="100"></div>
+    <div class="f"><label for="pp">Pool price (USDC)</label><input type="number" id="pp" value="3000" min="1" step="10"></div>
+    <div class="f"><label for="vext">External price</label><input type="number" id="vext" value="3000" min="1" step="1"></div>
+    <div class="f"><label for="fee">Swap fee %</label><input type="number" id="fee" value="0.3" min="0" max="5" step="0.05"></div>
+  </fieldset>
+  <fieldset><legend>User trade</legend>
+    <div class="f"><label for="dir">Direction</label><select id="dir"><option value="X2Y">ETH → USDC</option><option value="Y2X">USDC → ETH</option></select></div>
+    <div class="f"><label for="amt" id="amtLab">Amount (ETH)</label><input type="number" id="amt" value="25" min="0.0001" step="1"></div>
+    <div class="f"><label for="tol">Slippage tolerance %</label><input type="number" id="tol" value="1" min="0" max="20" step="0.1"></div>
+  </fieldset>
+  <fieldset><legend>Arbitrageurs</legend>
+    <div class="f"><label for="nArb">Bidders</label><input type="number" id="nArb" value="6" min="2" max="12" step="1"></div>
+    <div class="f"><label for="sig">Belief noise %</label><input type="number" id="sig" value="0.15" min="0" max="5" step="0.05"></div>
+    <label for="off" style="color:var(--ink2);font-size:13px">A1 misreports its belief by <b id="offV" class="num">0.00%</b></label>
+    <input type="range" id="off" min="-2" max="2" step="0.05" value="0">
+  </fieldset>
+  <fieldset><legend>Threshold nodes</legend>
+    <div class="f"><label for="nNode">Nodes (n)</label><input type="number" id="nNode" value="5" min="2" max="9" step="1"></div>
+    <div class="f"><label for="tNode">Tolerated corrupt (t)</label><input type="number" id="tNode" value="2" min="1" max="8" step="1"></div>
+    <label class="check"><input type="checkbox" id="tamper"><span>Ciphertext does not match the commitment (malformed submission)</span></label>
+  </fieldset>
+  <fieldset><legend>Redistribution</legend>
+    <label for="alpha" style="color:var(--ink2);font-size:13px">α to user: <b id="alphaV" class="num">0.90</b></label>
+    <input type="range" id="alpha" min="0" max="1" step="0.05" value="0.9">
+    <div class="f"><label for="seed">Random seed</label><input type="number" id="seed" value="7" min="1" step="1"></div>
+  </fieldset>
+  <button id="regen" type="button">New salt and key</button>
+</aside>
+
+<div class="col">
+  <section class="panel" aria-labelledby="h-out">
+    <div><h2 id="h-out">Outcome for this trade</h2><p class="sub" id="outSub"></p></div>
+    <div class="tiles" id="tiles"></div>
+    <div>
+      <h3>What the trade costs the user, against the external fair value</h3>
+      <p class="sub">Lower is better. Includes swap fee and price impact.</p>
+    </div>
+    <div class="bars" id="costBars"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-steps">
+    <div><h2 id="h-steps">Protocol run</h2><p class="sub">All five steps for the trade on the left, executed in one block.</p></div>
+    <ol class="steps" id="steps"></ol>
+  </section>
+
+  <section class="panel" aria-labelledby="h-ic">
+    <div><h2 id="h-ic">Does lying pay? Bidder A1's profit by reported price</h2>
+    <p class="sub">Other bids are held fixed. A second-price auction is incentive compatible when no misreport earns more than the truth. Drag the A1 slider on the left to move the marker.</p></div>
+    <div class="chart" id="icChart"></div>
+    <p class="note" id="icNote"></p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-chk">
+    <h2 id="h-chk">Properties checked on this run</h2>
+    <ul class="checks" id="checks"></ul>
+  </section>
+</div>
+</div>
+
+<section class="panel" aria-labelledby="h-sim">
+  <div><h2 id="h-sim">Market simulation: unprotected DEX vs MEVRES</h2>
+  <p class="sub">The same stream of random trades and the same external price path hit two identical pools. On the unprotected pool, searchers sandwich any trade worth more than gas and arbitrage the pool back to the external price each block. On the MEVRES pool, each opportunity is auctioned and the payment is refunded.</p></div>
+  <div class="simctl">
+    <label for="sBlocks">Blocks<input type="number" id="sBlocks" value="300" min="20" max="3000" step="20"></label>
+    <label for="sTpb">Trades per block<input type="number" id="sTpb" value="2" min="1" max="8" step="1"></label>
+    <label for="sVol">Price volatility % / block<input type="number" id="sVol" value="0.12" min="0" max="3" step="0.02"></label>
+    <label for="sSize">Median trade (USDC)<input type="number" id="sSize" value="20000" min="100" step="1000"></label>
+    <label for="sGas">Sandwich gas cost (USDC)<input type="number" id="sGas" value="8" min="0" step="1"></label>
+    <button class="primary" id="sRun" type="button">Run again with new seed</button>
+  </div>
+  <div class="tiles" id="simTiles"></div>
+  <div class="two">
+    <div><h3>Cumulative user cost vs fair value (USDC)</h3><div class="legend" id="lg1"></div><div class="chart" id="ch1"></div></div>
+    <div><h3>Cumulative LP profit: fees, less arbitrage loss, plus refunds (USDC)</h3><div class="legend" id="lg2"></div><div class="chart" id="ch2"></div></div>
+  </div>
+  <div>
+    <h3>Where the extractable value went</h3>
+    <p class="sub">Sandwich value plus rebalancing arbitrage (LVR) over the whole run. Winning bidders keep the gap between their own valuation and the second-highest bid.</p>
+  </div>
+  <div class="flow" id="flow"></div>
+  <div class="legend" id="flowLg"></div>
+</section>
+
+<footer>
+  Model notes. Pool is a constant-product market maker with fees held outside the reserves. Threshold encryption is modelled as AES-256-GCM with the key split by Shamir secret sharing over GF(2⁸), dealt by the user; a deployed system would use a distributed key generation so no dealer exists. Bidders report a price; the contract converts each report to a bundle value and ranks by value, so the highest value wins in both trade directions. Numbers are simulation outputs under these assumptions, not testnet measurements.
+</footer>
+</div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

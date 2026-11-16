@@ -1,0 +1,68 @@
+\section{Introduction}
+
+Daian et al.~\cite{daian2020flash} introduced the term ``miner extractable value'' for the profit a miner can make by reordering, inserting or censoring transactions. After Ethereum moved to proof-of-stake the term was generalised to ``maximal extractable value'', since validators, block builders and independent searchers all take part in extraction~\cite{yang2022sok}.
+
+MEV takes several forms. \emph{Arbitrage} closes price gaps between venues. \emph{Liquidation} captures the bonus paid for closing under-collateralised loans. \emph{Sandwich attacks} surround a user's swap with two trades to profit from its price impact~\cite{zhou2021high}. Qin et al.~\cite{qin2022quantifying} measured these strategies on Ethereum and found extracted value in the hundreds of millions of dollars. The root cause is the transparency of the mempool: pending transactions are visible to everyone before they execute~\cite{lyu2022empirical}.
+
+\section{Constant Function Market Makers}
+
+CFMMs are the dominant design for on-chain exchanges. A CFMM keeps reserves of two or more assets on an invariant curve $F(x,y)=k$; the constant product market maker sets $F(x,y)=x\cdot y$~\cite{angeris2020improved,adams2020uniswap}.
+
+Two features of CFMMs matter for MEV. The first is \emph{order sensitivity}: running the same trades in a different order gives every party a different outcome, and this is what a sandwich attacker exploits. Yang et al.~\cite{yang2022sok} give a systematic account of the resulting opportunities and of the countermeasures proposed against them. The second is \emph{stale pricing}: the pool price moves only when someone trades, so arbitrageurs profit by trading against it whenever the external price changes. Milionis et al.~\cite{milionis2022lvr} formalise the resulting cost to liquidity providers as loss-versus-rebalancing (LVR). A redistribution mechanism should therefore compensate LPs as well as users.
+
+\section{Private Channels}
+
+The most widely deployed defence routes transactions directly to block builders, bypassing the public mempool~\cite{flashbots2022}. This hides a trade from outside searchers. It does not hide it from the relay or the builder, who see the full plaintext. Lyu et al.~\cite{lyu2022empirical} study private transactions on Ethereum and the security implications of this shift in trust. Proposer-builder separation (PBS) has a similar character: it limits what validators can extract, but concentrates block building among a small number of builders and returns nothing to users~\cite{heimbach2023pbs}.
+
+\section{Batch Auctions}
+
+Budish et al.~\cite{budish2015hft} proposed frequent batch auctions for traditional markets: orders are collected over a short interval and cleared together at a uniform price. Because every trade in a batch receives the same price, there is nothing to gain from being placed immediately before or after another trade. On-chain batch auction protocols apply the same idea. Their cost is latency, since a user must wait for the batch to close, and they do not redistribute MEV that arises between batches.
+
+\section{Commit-Reveal Schemes and Encrypted Mempools}
+
+A cryptographic commitment lets a party fix a value without disclosing it. With a hash commitment the party publishes $c=H(m\,\|\,r)$ for a random salt $r$ and later reveals $(m,r)$. The scheme is \emph{binding}, because finding a different opening would require a hash collision, and \emph{hiding}, because $c$ reveals nothing about $m$ when $r$ is random. Commit-reveal has been proposed as a front-running defence~\cite{yang2022sok}, but it requires the user to return and reveal, and a user who dislikes the outcome can simply refuse.
+
+Encrypted mempools remove the second step. Transactions are encrypted under a public key whose secret key is shared among a committee, and are decrypted only after their position is fixed~\cite{blindperm2023}. The underlying tools are secret sharing~\cite{shamir1979share} and threshold cryptosystems~\cite{desmedt1989threshold}, in which any $t+1$ of $n$ parties can decrypt but $t$ cannot. Pedersen~\cite{pedersen1991threshold} showed how the committee can generate such a key jointly so that no trusted dealer ever holds it. Encrypted mempools prevent front-running but, on their own, do not return MEV to anyone.
+
+\section{Order Fairness}
+
+A different line of work constrains the ordering itself. Kelkar et al.~\cite{kelkar2020order} define order-fairness for Byzantine consensus: if enough nodes receive one transaction before another, the first must be ordered first. Cachin et al.~\cite{cachin2022quick} give a more efficient protocol with a related guarantee. These protocols remove the block producer's discretion. They are, however, sensitive to network latency, which a well-connected adversary can exploit, and they leave transaction contents visible.
+
+\section{MEV Redistribution}
+
+RediSwap~\cite{zhang2024rediswap} accepts that some MEV is unavoidable and redistributes it. Arbitrageurs report their price beliefs, each MEV opportunity is sold in a second-price auction~\cite{vickrey1961counterspeculation}, and the payment is refunded to users (for sandwich MEV) and LPs (for rebalancing MEV). The design is incentive compatible, and its sandwich construction makes opportunities independent of one another.
+
+Its weakness is the transport layer. RediSwap receives user transactions through a private channel operated by a sequencer. An operator who is malicious or compromised can read transactions before the auction, extract the MEV directly, or pass the information to a favoured arbitrageur. The redistribution guarantee therefore holds only while the sequencer is honest.
+
+\section{Comparison of Existing Approaches}
+
+Table~\ref{tab:comparison} compares the approaches on four properties. The entries for existing approaches summarise the discussion above; the entry for MEVRES is justified in Chapters~\ref{ch:new} and~\ref{ch:result}.
+
+\begin{table}[h]
+\centering
+\caption{Comparison of MEV Mitigation Approaches}
+\label{tab:comparison}
+\begin{tabular}{|L{3.6cm}|C{2.2cm}|C{2.4cm}|C{2.4cm}|C{2.4cm}|}
+\hline
+\textbf{Approach} & \textbf{Prevents front-running} & \textbf{Decentralized trust} & \textbf{MEV redistribution} & \textbf{Incentive compatible} \\
+\hline
+Private channels~\cite{flashbots2022} & Partial & No & No & N/A \\
+\hline
+Batch auctions~\cite{budish2015hft} & Yes & Yes & No & Partial \\
+\hline
+Commit-reveal~\cite{yang2022sok} & Partial & Yes & No & Partial \\
+\hline
+Order fairness~\cite{kelkar2020order,cachin2022quick} & Yes & Partial & No & N/A \\
+\hline
+Encrypted mempool~\cite{blindperm2023} & Yes & Yes & No & N/A \\
+\hline
+RediSwap~\cite{zhang2024rediswap} & Yes & No & Yes & Yes \\
+\hline
+\textbf{MEVRES (this work)} & \textbf{Yes} & \textbf{Yes} & \textbf{Yes} & \textbf{Yes} \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Summary}
+
+Existing work offers either privacy without redistribution (encrypted mempools, order fairness, batch auctions) or redistribution without decentralized privacy (RediSwap). No approach in Table~\ref{tab:comparison} provides both. MEVRES, presented in the next chapter, combines the encrypted-mempool idea with RediSwap's auction to close this gap.

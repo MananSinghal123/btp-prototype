@@ -1,0 +1,70 @@
+\section{Overview}
+
+Public blockchains were designed to agree on \emph{which} transactions are valid, not on the order in which they should run. For simple payments the order rarely matters. For decentralized finance (DeFi), and for decentralized exchanges (DEXs) in particular, it matters a great deal: the price a trader receives depends on the trades that execute just before theirs. Whoever controls ordering can therefore profit beyond the ordinary block reward and transaction fees~\cite{daian2020flash}.
+
+The best-known example is the \emph{sandwich attack}. An attacker sees a pending swap, places one trade before it (front-running) to push the price against the victim, and a second trade after it (back-running) to sell at the inflated price~\cite{zhou2021high}. The attacker's gain equals the victim's loss. The total profit available from including, excluding or reordering transactions in a block is called \textbf{Maximal Extractable Value (MEV)}~\cite{daian2020flash,yang2022sok}. Block producers can extract it directly, but so can any \emph{searcher} who watches the public mempool and pays for favourable placement~\cite{flashbots2022}. Measurements on Ethereum put the extracted value in the hundreds of millions of dollars~\cite{qin2022quantifying}.
+
+\section{Background}
+
+This section fixes the model and notation used in the rest of the dissertation. The model follows the one used by RediSwap~\cite{zhang2024rediswap}, on which our mechanism builds.
+
+\subsection{CFMM Pool}
+
+A constant function market maker (CFMM) holds reserves of two assets and trades against anyone at a price determined by those reserves~\cite{angeris2020improved}. We consider a pool with a risky asset $X$ (for example ETH) and a num\'eraire asset $Y$ (for example USDC). The pool state is the pair of reserves $s=(x,y)$, constrained to lie on a curve $F(x,y)=k$. The \emph{spot price} of $X$ at state $s$ is the marginal exchange rate $(\partial F/\partial x)/(\partial F/\partial y)$.
+
+We assume two properties of $F$, both satisfied by Uniswap-style pools~\cite{adams2020uniswap}:
+\begin{enumerate}
+    \item Along the curve, increasing the reserve of $X$ strictly decreases the reserve of $Y$, and vice versa.
+    \item $F$ is differentiable and the spot price of $X$ is decreasing in $x$.
+\end{enumerate}
+Together these mean that each value of $x$ corresponds to exactly one value of $y$ on the curve. The state of the pool at the end of the previous block is called the \emph{initial state} and is written $s_0=(x_0,y_0)$. All concrete examples and the simulation in Chapter~\ref{ch:result} use the constant product curve $x\cdot y=k$.
+
+\subsection{Liquidity Providers}
+
+Liquidity providers (LPs) deposit both assets into the pool and earn a share of the swap fee, a fraction $f\in[0,1)$ of each trade's input. We keep fees outside the trading reserves, as Uniswap v3 does, so that the pool stays on a fixed curve during a block. We consider swaps only and assume that no liquidity is added or removed.
+
+\subsection{Users}
+
+Users are uninformed (noise) traders who want to exchange one asset for the other. A user transaction is written
+\[
+TX=(X\rightarrow Y,\ \delta^{x}_{in},\ \delta^{y}_{out}),
+\]
+meaning the user will give up $\delta^{x}_{in}$ units of $X$ provided they receive at least $\delta^{y}_{out}$ units of $Y$. The transaction $(Y\rightarrow X,\ \delta^{y}_{in},\ \delta^{x}_{out})$ is defined symmetrically. Input amounts are taken net of the swap fee. The minimum output encodes the user's \emph{slippage tolerance}: the gap between the pool's quoted output and $\delta_{out}$ is the amount a sandwich attacker can take.
+
+\subsection{Arbitrageurs}
+
+Arbitrageurs are informed traders who can also trade on external venues such as centralized exchanges. Each arbitrageur $i$ holds a private belief $v_i^{*}$ about the external price of $X$ and profits whenever the pool trades at a different price~\cite{yang2022sok}. When the pool price is stale, the arbitrage profit comes at the expense of LPs; this loss is known as loss-versus-rebalancing (LVR)~\cite{milionis2022lvr}.
+
+\subsection{MEV Redistribution}
+
+An MEV redistribution mechanism does not try to eliminate MEV. It sells each MEV opportunity to arbitrageurs in an auction and returns the proceeds to the parties who would otherwise have paid for it~\cite{zhang2024rediswap}. Such a mechanism is specified by three rules:
+\begin{enumerate}
+    \item a \textbf{bundle generation rule}, which builds the sequence of trades that realises the MEV;
+    \item a \textbf{payment rule}, which decides what the winning arbitrageur pays; and
+    \item a \textbf{refund rule}, which divides that payment between users and LPs.
+\end{enumerate}
+Because CFMM execution is order-sensitive, the value of one opportunity normally depends on which trades ran before it. RediSwap removes this dependence by wrapping every user trade in a sandwich that starts and ends at the initial state $s_0$. We adopt the same construction in Chapter~\ref{ch:new}.
+
+\section{Motivation and Problem Statement}
+
+The public mempool exposes the direction, size and slippage tolerance of every pending swap~\cite{lyu2022empirical}. Private transaction channels~\cite{flashbots2022} and encrypted mempools~\cite{blindperm2023} hide this information, but each relies on its own trust assumption~\cite{heimbach2023pbs}. RediSwap redistributes MEV, yet it receives transactions through a private sequencer that must be trusted not to read or leak them.
+
+The problem addressed in this dissertation is:
+
+\begin{quote}
+\emph{How can an AMM-based DEX redistribute MEV to users and liquidity providers without trusting any single party to keep pending transactions private?}
+\end{quote}
+
+\section{Contributions}
+
+This dissertation makes the following contributions.
+\begin{enumerate}
+    \item \textbf{Protocol.} We design MEVRES, a five-step protocol that combines a hash commitment and threshold encryption with RediSwap's second-price MEV auction, so that no party, including the auction itself, can read a transaction before bids are fixed (Chapter~\ref{ch:new}).
+    \item \textbf{Analysis.} We prove bundle independence, dominant-strategy incentive compatibility, individual rationality and bidder-side Sybil-proofness for the mechanism (Section~\ref{sec:properties}).
+    \item \textbf{Prototype.} We implement the protocol as an interactive web application in which hashing, encryption and secret sharing are executed for real (Section~\ref{sec:sim-setup}).
+    \item \textbf{Evaluation.} We simulate MEVRES against an unprotected DEX over 1{,}000 runs, study its sensitivity to the number of bidders and to the refund parameter, and quantify how a sequencer-based design degrades when the sequencer is compromised (Section~\ref{sec:sim-results}).
+\end{enumerate}
+
+\section{Organization of the Dissertation}
+
+Chapter~\ref{ch:literature} reviews prior work on MEV and its mitigation. Chapter~\ref{ch:new} presents the MEVRES mechanism and its properties. Chapter~\ref{ch:result} evaluates the mechanism qualitatively and by simulation. Chapter~\ref{ch:conclude} concludes and discusses limitations and future work. Appendix~\ref{app:prototype} describes the prototype.

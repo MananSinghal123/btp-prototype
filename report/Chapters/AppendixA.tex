@@ -1,0 +1,26 @@
+The prototype is a single HTML file with no server component. It runs in any modern browser and uses the Web Crypto API for SHA-256 and AES-256-GCM. The source file is submitted together with this dissertation.
+
+\section{Interface}
+
+Figure~\ref{fig:prototype} shows the main view. The left panel holds the parameters of the pool, the user's trade, the arbitrageurs, the threshold nodes and the refund split. The right panel shows the outcome of the trade and, below it, the five protocol steps with the values computed at each step.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{prototype.png}
+\caption{The MEVRES prototype: settings (left), outcome of the trade on an unprotected DEX and under MEVRES (top right) and the start of the protocol run (bottom right).}
+\label{fig:prototype}
+\end{figure}
+
+\section{Features}
+
+\begin{itemize}
+    \item \textbf{Protocol run.} Shows the plaintext trade, the ciphertext, the salt, the commitment, the sealed reports, the recovered trade, the ranking of bids, the three legs of the bundle with the pool state after each, and the refund.
+    \item \textbf{Failure cases.} Individual threshold nodes can be taken offline; with fewer than $t+1$ online the trade is not decrypted and nothing executes. A malformed submission whose ciphertext does not match its commitment is rejected and its collateral forfeited.
+    \item \textbf{Incentive check.} Plots one arbitrageur's profit against its reported price with all other reports fixed.
+    \item \textbf{Property checks.} Eight checks are evaluated on every run, including that $t$ colluding nodes fail to decrypt, that the user is filled at exactly the stated minimum, that the pool returns to $s_0$, and that the whole payment is refunded.
+    \item \textbf{Market simulation.} Runs the model of Section~\ref{sec:sim-setup} and plots cumulative user cost, cumulative LP profit and the division of extracted value.
+\end{itemize}
+
+\section{Reproducing the Results}
+
+All randomness in the market simulation comes from a seeded generator, so every figure in Chapter~\ref{ch:result} can be reproduced. The 1{,}000-run results use seeds 1 to 1{,}000 with the parameters of Table~\ref{tab:sim-params}; the sensitivity and sequencer experiments use seeds 1 to 300 for each setting.
