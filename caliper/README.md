@@ -23,7 +23,7 @@ Results: [`results/RESULTS.md`](results/RESULTS.md).
   34 bps against encryption alone (about $68), against about $15 of extra gas. For small
   trades the gas can exceed the saving. This is a rough comparison of two separate models.
 - **Caliper's throughput numbers are limited by the local node, not the contract.** Every
-  transaction type, including the plain swap, sustained 83–129 TPS on one machine, so they do
+  transaction type, including the plain swap, sustained roughly 80–130 TPS on one machine (the figures vary from run to run), so they do
   not separate MEVRES from the baseline. Gas does.
 
 ## What is measured

@@ -18,11 +18,31 @@ run_caliper() {  # $1 = benchmark config, $2 = report name, $3 = block time in m
   trap 'kill $node_pid 2>/dev/null || true' RETURN
   for _ in $(seq 1 30); do grep -q "Started HTTP and WebSocket" "results/$2-node.log" 2>/dev/null && break; sleep 1; done
   grep -q "Started HTTP and WebSocket" "results/$2-node.log" || { echo "Hardhat node did not start; is port 8545 in use?"; exit 1; }
-  timeout 1800 npx caliper launch manager \
+  # Caliper 0.6 sometimes keeps running after "Benchmark successfully finished!" (open
+  # WebSocket handles), so watch the log and stop it once the benchmark has ended.
+  ./node_modules/.bin/caliper launch manager \
     --caliper-workspace . \
     --caliper-networkconfig networks/hardhat.json \
     --caliper-benchconfig "$1" \
-    --caliper-flow-only-test false | tee "results/$2.log"
+    --caliper-flow-only-test false > "results/$2.log" 2>&1 &
+  local cal_pid=$!
+  tail -n +1 -f "results/$2.log" --pid=$cal_pid &
+  local tail_pid=$!
+  local waited=0
+  while kill -0 $cal_pid 2>/dev/null && [ $waited -lt 1800 ]; do
+    if grep -aq -e "Benchmark successfully finished" -e "Benchmark failed" "results/$2.log"; then
+      sleep 3
+      pkill -P $cal_pid 2>/dev/null || true
+      kill $cal_pid 2>/dev/null || true
+      break
+    fi
+    sleep 2; waited=$((waited + 2))
+  done
+  kill $cal_pid 2>/dev/null || true
+  wait $cal_pid 2>/dev/null || true
+  kill $tail_pid 2>/dev/null || true
+  grep -aq "Benchmark successfully finished" "results/$2.log" \
+    || { echo "Caliper benchmark $1 did not finish; see results/$2.log"; exit 1; }
   mv report.html "results/$2.html"
   kill $node_pid 2>/dev/null || true
   wait $node_pid 2>/dev/null || true
