@@ -8,8 +8,8 @@ cd "$(dirname "$0")"
 mkdir -p results
 
 node scripts/compile.js
-node scripts/smoke-test.js 2>/dev/null
-node scripts/gas-scaling.js 2>/dev/null | tee results/gas-scaling.md
+node scripts/smoke-test.js
+node scripts/gas-scaling.js | tee results/gas-scaling.md
 
 run_caliper() {  # $1 = benchmark config, $2 = report name, $3 = block time in ms (0 = automine)
   # run the node binary directly so $! is the node itself, not an npx wrapper

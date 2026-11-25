@@ -1,9 +1,8 @@
-/* Correctness check before benchmarking: deploys Mevres to an in-process Ganache chain and
+/* Correctness check before benchmarking: deploys Mevres to an in-process Hardhat chain and
    checks the contract against the prototype's JavaScript model (prototype/js/trade.js).
    Run: node scripts/smoke-test.js */
 const path = require('path');
-const ganache = require('ganache');
-const Web3 = require('web3');
+const { inProcessWeb3 } = require('./chain');
 const contract = require('../contracts/Mevres.json');
 const { commitmentOf, encrypt, quote, WAD, X0, Y0 } = require('../workloads/plan');
 
@@ -14,11 +13,12 @@ const toWad = (v) => BigInt(Math.round(v * 1e6)) * 10n ** 12n;
 
 (async () => {
     const { tradeMath } = await import(path.join(__dirname, '..', '..', 'prototype', 'js', 'trade.js'));
-    const provider = ganache.provider({ logging: { quiet: true }, wallet: { deterministic: true } });
-    const web3 = new Web3(provider);
+    const web3 = inProcessWeb3();
     const [from] = await web3.eth.getAccounts();
     const c = await new web3.eth.Contract(contract.abi).deploy({ data: contract.bytecode }).send({ from, gas: contract.gas });
-    const send = (m) => m.send({ from, gas: 1_000_000 });
+    // web3 1.2.6 also emits an 'error' event on a reverted transaction; with no listener that
+    // event crashes the process, so listen and let the rejected promise carry the error
+    const send = (m) => m.send({ from, gas: 1_000_000 }).on('error', () => {});
 
     // ---- the report's single-trade example: sell 25 ETH, 1% slippage, 6 bidders, seed 7
     const P = { x0: 5000, pp: 3000, vext: 3000, fee: 0.003, dir: 'X2Y', amt: 25, tol: 0.01, nArb: 6, sig: 0.0015, off: 0, seed: 7 };

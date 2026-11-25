@@ -48,7 +48,7 @@ An epoch stands for one block of trades: its trades share one set of price repor
 
 ## Run it
 
-Needs Node 18 or later. From this folder:
+Needs Node 18 or later (tested on Node 22; Node 24 works for the smoke test and gas scaling). From this folder:
 
     npm install
     npx caliper bind --caliper-bind-sut ethereum:1.3
@@ -81,9 +81,9 @@ runs both Caliper configs, stops the node, and writes `results/RESULTS.md`. Indi
 ## Versions and why
 
 - **Caliper 0.6.0.** Caliper 0.7 removed the Ethereum connector and supports only Fabric.
-- **Hardhat 2 as the node.** Caliper's Ethereum connector needs a WebSocket endpoint, and
-  Ganache's WebSocket server does not run on Node 22. Ganache is still used in-process for the
-  smoke test and gas scaling.
+- **Hardhat 2 as the node.** Caliper's Ethereum connector needs a WebSocket endpoint, which
+  Hardhat's node provides. The smoke test and gas scaling use Hardhat in-process
+  (`scripts/chain.js`). Ganache is not used: it is unmaintained and fails on Node 24.
 - **One worker.** The plan is one ordered stream from one account, so rounds must run in
   order (swap, commit, report, settle, rebalance) with a single worker.
 

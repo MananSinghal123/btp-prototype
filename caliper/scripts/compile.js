@@ -10,7 +10,7 @@ const input = {
     sources: { 'Mevres.sol': { content: fs.readFileSync(src, 'utf8') } },
     settings: {
         optimizer: { enabled: true, runs: 200 },
-        evmVersion: 'shanghai',   // what Ganache 7.9 runs by default
+        evmVersion: 'shanghai',   // matches the hardfork in hardhat.config.js
         outputSelection: { '*': { '*': ['abi', 'evm.bytecode.object'] } },
     },
 };

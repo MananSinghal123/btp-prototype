@@ -1,12 +1,11 @@
 /* Gas per trade as a function of bidders and trades per epoch. Gas is deterministic, so this
-   runs in-process on Ganache instead of through Caliper. For each setting it deploys a fresh
+   runs on an in-process Hardhat chain instead of through Caliper. For each setting it deploys a fresh
    contract, runs one epoch end to end and attributes shared costs to trades:
      per trade = commit + settle + (bidders x report + rebalance) / trades per epoch
    Run: node scripts/gas-scaling.js   (writes results/gas-scaling.json) */
 const fs = require('fs');
 const path = require('path');
-const ganache = require('ganache');
-const Web3 = require('web3');
+const { inProcessWeb3 } = require('./chain');
 const contract = require('../contracts/Mevres.json');
 const { buildPlan, encrypt } = require('../workloads/plan');
 
@@ -14,9 +13,9 @@ const BIDDERS = [2, 6, 12, 24, 32];
 const PER_EPOCH = [1, 2, 10, 50];
 
 (async () => {
-    const web3 = new Web3(ganache.provider({ logging: { quiet: true }, wallet: { deterministic: true }, chain: { hardfork: 'shanghai' } }));
+    const web3 = inProcessWeb3();
     const [from] = await web3.eth.getAccounts();
-    const send = async (m) => (await m.send({ from, gas: 2_000_000 })).gasUsed;
+    const send = async (m) => (await m.send({ from, gas: 2_000_000 }).on('error', () => {})).gasUsed;
     const mean = (a) => a.reduce((s, v) => s + v, 0) / a.length;
 
     const rows = [];
