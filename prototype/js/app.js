@@ -19,7 +19,7 @@ let online=[];
 /* Step 1 material is created once per trade and reused while the reader explores later steps. */
 let sealed=null,sealedFor="";
 let simSeed=11;
-const simSettings=()=>({blocks:Math.round(val("sBlocks",20,3000)),tpb:Math.round(val("sTpb",1,8)),vol:val("sVol",0,3)/100,med:val("sSize",100,1e9),gas:val("sGas",0,1e6),seed:simSeed});
+const simSettings=()=>({blocks:Math.round(val("sBlocks",20,3000)),tpb:Math.round(val("sTpb",1,8)),vol:val("sVol",0,3)/100,med:val("sSize",100,1e9),gas:val("sGas",0,1e6),sandRate:val("sRate",0,100)/100,seed:simSeed});
 
 let runId=0;
 async function render(){
@@ -111,26 +111,27 @@ async function render(){
 }
 
 function renderSim(){
-  const P=params(),R=simulate(P,simSettings()),n=R.x.length,cU=R.costU[n-1],cM=R.costM[n-1],lU=R.lpU[n-1],lM=R.lpM[n-1];
-  const bps=c=>R.fair?nf(c/R.fair*1e4,1)+" bps":"—",totU=R.sandU+R.lvrU,totM=R.usersM+R.lpsM+R.arbsM;
+  const P=params(),R=simulate(P,simSettings()),n=R.x.length,cU=R.costU[n-1],cM=R.costM[n-1],cE=R.costE[n-1],lU=R.lpU[n-1],lM=R.lpM[n-1],lE=R.lpE[n-1];
+  const bps=(c,f=R.fair)=>f?nf(c/f*1e4,1)+" bps":"—",totU=R.sandU+R.lvrU,totM=R.usersM+R.lpsM+R.arbsM;
   $("simTiles").innerHTML=[
     ["Average user cost",bps(cU)+" → "+bps(cM),"Unprotected → MEVRES, against fair value"],
+    ["Encrypted only",bps(cE,R.fairE),`User cost with encryption but no auction or refund. LP profit ${usd(lE,0)}`],
     ["User cost saved",usd(cU-cM,0),`${nf(R.nSand,0)} of ${nf(R.nTrades,0)} trades were sandwiched on the unprotected pool`],
     ["LP profit",usd(lU,0)+" → "+usd(lM,0),"Fees less arbitrage loss, plus auction refunds"],
     ["Value kept by searchers",(totU?nf(100,0):"0")+"% → "+(totM>0?nf(R.arbsM/totM*100,1):"0")+"%","Share of extractable value not returned. Bidder profit is valued at the bidder's own belief."]
   ].map(t=>`<div class="tile"><span class="k">${t[0]}</span><span class="v num">${t[1]}</span><span class="d">${t[2]}</span></div>`).join("");
-  const lg=(el,a,b)=>el.innerHTML=`<span><span class="dot" style="background:var(--unprot)"></span>Unprotected DEX <b>${usd(a,0)}</b></span><span><span class="dot" style="background:var(--accent)"></span>MEVRES <b>${usd(b,0)}</b></span>`;
-  lg($("lg1"),cU,cM);lg($("lg2"),lU,lM);
+  const lg=(el,a,e,b)=>el.innerHTML=`<span><span class="dot" style="background:var(--unprot)"></span>Unprotected DEX <b>${usd(a,0)}</b></span><span><span class="dot" style="background:var(--ref)"></span>Encrypted only <b>${usd(e,0)}</b></span><span><span class="dot" style="background:var(--accent)"></span>MEVRES <b>${usd(b,0)}</b></span>`;
+  lg($("lg1"),cU,cE,cM);lg($("lg2"),lU,lE,lM);
   const o={x:R.x,xFmt:v=>"block "+v,xTick:v=>nf(v,0),yFmt:v=>usd(v,0),xTitle:"Block"};
-  lineChart($("ch1"),{...o,series:[{name:"Unprotected DEX",color:"var(--unprot)",y:R.costU},{name:"MEVRES",color:"var(--accent)",y:R.costM}]});
-  lineChart($("ch2"),{...o,series:[{name:"Unprotected DEX",color:"var(--unprot)",y:R.lpU},{name:"MEVRES",color:"var(--accent)",y:R.lpM}]});
+  lineChart($("ch1"),{...o,series:[{name:"Unprotected DEX",color:"var(--unprot)",y:R.costU},{name:"Encrypted only",color:"var(--ref)",y:R.costE},{name:"MEVRES",color:"var(--accent)",y:R.costM}]});
+  lineChart($("ch2"),{...o,series:[{name:"Unprotected DEX",color:"var(--unprot)",y:R.lpU},{name:"Encrypted only",color:"var(--ref)",y:R.lpE},{name:"MEVRES",color:"var(--accent)",y:R.lpM}]});
   const seg=(v,tot,c,t)=>v>0?`<span style="width:${v/tot*100}%;background:var(${c})" title="${t}: ${usd(v,0)}"></span>`:"";
   const big=Math.max(totU,totM,1e-9);
   $("flow").innerHTML=`<div class="flowrow"><span>Unprotected DEX · ${usd(totU,0)} extracted</span><div class="flowbar" style="width:${totU/big*100}%">${seg(totU,totU,"--arbs","Searchers")}</div></div>
     <div class="flowrow"><span>MEVRES · ${usd(totM,0)} auctioned</span><div class="flowbar" style="width:${totM/big*100}%">${seg(R.usersM,totM,"--users","Users")}${seg(R.lpsM,totM,"--lps","Liquidity providers")}${seg(Math.max(0,R.arbsM),totM,"--arbs","Arbitrageurs")}</div></div>`;
   const pc=v=>totM>0?nf(v/totM*100,1)+"%":"—";
   $("flowLg").innerHTML=`<span><span class="dot" style="background:var(--users)"></span>Users <b>${usd(R.usersM,0)}</b> (${pc(R.usersM)})</span><span><span class="dot" style="background:var(--lps)"></span>Liquidity providers <b>${usd(R.lpsM,0)}</b> (${pc(R.lpsM)})</span><span><span class="dot" style="background:var(--arbs)"></span>Searchers and arbitrageurs <b>${usd(R.arbsM,0)}</b> (${pc(R.arbsM)})</span>`
-    +(R.revU||R.revM?`<span>Trades that missed their limit: ${R.revU} unprotected, ${R.revM} MEVRES</span>`:"");
+    +(R.revU||R.revE||R.revM?`<span>Trades that missed their limit: ${R.revU} unprotected, ${R.revE} encrypted only, ${R.revM} MEVRES</span>`:"");
 }
 
 /* ---------- wiring ---------- */

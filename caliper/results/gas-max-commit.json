@@ -1,0 +1,13 @@
+{
+  "label": "max-commit",
+  "transactions": 1500,
+  "gas": {
+    "mean": 79573,
+    "min": 79497,
+    "median": 79569,
+    "max": 79617
+  },
+  "events": {
+    "Committed": 1500
+  }
+}

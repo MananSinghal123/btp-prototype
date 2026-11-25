@@ -1,0 +1,13 @@
+{
+  "label": "max-rebalance",
+  "transactions": 750,
+  "gas": {
+    "mean": 221361,
+    "min": 221338,
+    "median": 221361,
+    "max": 221383
+  },
+  "events": {
+    "Rebalanced": 750
+  }
+}

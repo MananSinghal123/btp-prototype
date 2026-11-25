@@ -78,14 +78,15 @@
 </div>
 
 <section class="panel" aria-labelledby="h-sim">
-  <div><h2 id="h-sim">Market simulation: unprotected DEX vs MEVRES</h2>
-  <p class="sub">The same stream of random trades and the same external price path hit two identical pools. On the unprotected pool, searchers sandwich any trade worth more than gas and arbitrage the pool back to the external price each block. On the MEVRES pool, each opportunity is auctioned and the payment is refunded.</p></div>
+  <div><h2 id="h-sim">Market simulation: unprotected DEX vs encrypted only vs MEVRES</h2>
+  <p class="sub">The same stream of random trades and the same external price path hit three identical pools. On the unprotected pool, searchers sandwich the chosen share of trades worth more than gas, and an arbitrageur moves the pool back to the external price each block. On the encrypted-only pool, trades are hidden so nobody sandwiches them, but nothing is auctioned or refunded. On the MEVRES pool, each opportunity is auctioned and the payment is refunded.</p></div>
   <div class="simctl">
     <label for="sBlocks">Blocks<input type="number" id="sBlocks" value="300" min="20" max="3000" step="20"></label>
     <label for="sTpb">Trades per block<input type="number" id="sTpb" value="2" min="1" max="8" step="1"></label>
     <label for="sVol">Price volatility % / block<input type="number" id="sVol" value="0.12" min="0" max="3" step="0.02"></label>
     <label for="sSize">Median trade (USDC)<input type="number" id="sSize" value="20000" min="100" step="1000"></label>
     <label for="sGas">Sandwich gas cost (USDC)<input type="number" id="sGas" value="8" min="0" step="1"></label>
+    <label for="sRate">Profitable trades sandwiched %<input type="number" id="sRate" value="100" min="0" max="100" step="5"></label>
     <button class="primary" id="sRun" type="button">Run again with new seed</button>
   </div>
   <div class="tiles" id="simTiles"></div>

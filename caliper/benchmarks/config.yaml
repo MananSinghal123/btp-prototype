@@ -1,0 +1,61 @@
+# MEVRES on Hyperledger Caliper: latency and gas at a fixed 50 TPS send rate.
+# One full protocol pipeline plus the unprotected baseline.
+# 300 trades, 2 per epoch (150 epochs), 6 bidders per epoch, as in the report's simulation.
+# Rounds must stay in this order and use one worker; see workloads/mevres.js.
+# The plan arguments (trades, tradesPerEpoch, bidders, seed) must match in every round.
+# txNumber must equal the number of transactions the round's op produces:
+#   swap, commit, settle: trades   report: epochs x bidders   rebalance: epochs
+# vol: 0 holds the external price at the pool price. Caliper runs every settle before any
+# rebalance, so a drifting price would leave later epochs facing a stale pool and produce
+# trades no bidder wants; that is an artifact of round ordering, not of the mechanism.
+simple: &plan
+  trades: 300
+  tradesPerEpoch: 2
+  bidders: 6
+  seed: 42
+  vol: 0
+
+test:
+  name: mevres
+  description: MEVRES contract (commit, blind report, settle, rebalance) against an unprotected swap
+  workers:
+    number: 1
+  rounds:
+    - label: swap-unprotected
+      description: Baseline constant-product swap with no MEV protection
+      txNumber: 300
+      rateControl: &rate
+        type: fixed-rate
+        opts:
+          tps: 50
+      workload:
+        module: workloads/mevres.js
+        arguments: { <<: *plan, op: swap, label: swap-unprotected }
+    - label: commit
+      description: Step 1, hash commitment and AES-256-GCM ciphertext
+      txNumber: 300
+      rateControl: *rate
+      workload:
+        module: workloads/mevres.js
+        arguments: { <<: *plan, op: commit, label: commit }
+    - label: report
+      description: Step 2, blind price reports (6 per epoch)
+      txNumber: 900
+      rateControl: *rate
+      workload:
+        module: workloads/mevres.js
+        arguments: { <<: *plan, op: report, label: report }
+    - label: settle
+      description: Steps 3-5, verify commitment, second-price auction, bundle check, refund
+      txNumber: 300
+      rateControl: *rate
+      workload:
+        module: workloads/mevres.js
+        arguments: { <<: *plan, op: settle, label: settle }
+    - label: rebalance
+      description: End of epoch, auction of the move to the external price
+      txNumber: 150
+      rateControl: *rate
+      workload:
+        module: workloads/mevres.js
+        arguments: { <<: *plan, op: rebalance, label: rebalance }
