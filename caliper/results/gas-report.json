@@ -1,0 +1,13 @@
+{
+  "label": "report",
+  "transactions": 900,
+  "gas": {
+    "mean": 78516,
+    "min": 75655,
+    "median": 75667,
+    "max": 92767
+  },
+  "events": {
+    "Reported": 900
+  }
+}

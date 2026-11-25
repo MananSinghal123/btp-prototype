@@ -1,0 +1,5 @@
+node_modules/
+report.html
+caliper.log
+log/
+results/*node.log

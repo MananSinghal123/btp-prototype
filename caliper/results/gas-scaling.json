@@ -1,0 +1,206 @@
+{
+  "swap": 50829,
+  "rows": [
+    {
+      "bidders": 2,
+      "perEpoch": 1,
+      "commit": 78831,
+      "report": 84217,
+      "settle": 203773,
+      "rebalance": 137418,
+      "perTrade": 588456,
+      "vsSwap": 11.6
+    },
+    {
+      "bidders": 2,
+      "perEpoch": 2,
+      "commit": 78837,
+      "report": 84217,
+      "settle": 150930,
+      "rebalance": 137418,
+      "perTrade": 382693,
+      "vsSwap": 7.5
+    },
+    {
+      "bidders": 2,
+      "perEpoch": 10,
+      "commit": 78841,
+      "report": 84217,
+      "settle": 110387,
+      "rebalance": 137418,
+      "perTrade": 219813,
+      "vsSwap": 4.3
+    },
+    {
+      "bidders": 2,
+      "perEpoch": 50,
+      "commit": 78846,
+      "report": 84217,
+      "settle": 100574,
+      "rebalance": 137418,
+      "perTrade": 185537,
+      "vsSwap": 3.7
+    },
+    {
+      "bidders": 6,
+      "perEpoch": 1,
+      "commit": 78843,
+      "report": 78517,
+      "settle": 215140,
+      "rebalance": 221362,
+      "perTrade": 986447,
+      "vsSwap": 19.4
+    },
+    {
+      "bidders": 6,
+      "perEpoch": 2,
+      "commit": 78843,
+      "report": 78517,
+      "settle": 170901,
+      "rebalance": 221362,
+      "perTrade": 595976,
+      "vsSwap": 11.7
+    },
+    {
+      "bidders": 6,
+      "perEpoch": 10,
+      "commit": 78833,
+      "report": 78517,
+      "settle": 121778,
+      "rebalance": 221362,
+      "perTrade": 269858,
+      "vsSwap": 5.3
+    },
+    {
+      "bidders": 6,
+      "perEpoch": 50,
+      "commit": 78834,
+      "report": 78517,
+      "settle": 111959,
+      "rebalance": 221362,
+      "perTrade": 204642,
+      "vsSwap": 4
+    },
+    {
+      "bidders": 12,
+      "perEpoch": 1,
+      "commit": 78855,
+      "report": 77092,
+      "settle": 215237,
+      "rebalance": 364363,
+      "perTrade": 1583559,
+      "vsSwap": 31.2
+    },
+    {
+      "bidders": 12,
+      "perEpoch": 2,
+      "commit": 78837,
+      "report": 77092,
+      "settle": 170938,
+      "rebalance": 364363,
+      "perTrade": 894509,
+      "vsSwap": 17.6
+    },
+    {
+      "bidders": 12,
+      "perEpoch": 10,
+      "commit": 78844,
+      "report": 77092,
+      "settle": 138842,
+      "rebalance": 347263,
+      "perTrade": 344923,
+      "vsSwap": 6.8
+    },
+    {
+      "bidders": 12,
+      "perEpoch": 50,
+      "commit": 78843,
+      "report": 77092,
+      "settle": 129032,
+      "rebalance": 347263,
+      "perTrade": 233322,
+      "vsSwap": 4.6
+    },
+    {
+      "bidders": 24,
+      "perEpoch": 1,
+      "commit": 78855,
+      "report": 76379,
+      "settle": 266246,
+      "rebalance": 599030,
+      "perTrade": 2777227,
+      "vsSwap": 54.6
+    },
+    {
+      "bidders": 24,
+      "perEpoch": 2,
+      "commit": 78837,
+      "report": 76379,
+      "settle": 213397,
+      "rebalance": 599030,
+      "perTrade": 1508297,
+      "vsSwap": 29.7
+    },
+    {
+      "bidders": 24,
+      "perEpoch": 10,
+      "commit": 78837,
+      "report": 76379,
+      "settle": 173004,
+      "rebalance": 599030,
+      "perTrade": 495053,
+      "vsSwap": 9.7
+    },
+    {
+      "bidders": 24,
+      "perEpoch": 50,
+      "commit": 78840,
+      "report": 76379,
+      "settle": 163149,
+      "rebalance": 599030,
+      "perTrade": 290632,
+      "vsSwap": 5.7
+    },
+    {
+      "bidders": 32,
+      "perEpoch": 1,
+      "commit": 78843,
+      "report": 76201,
+      "settle": 288950,
+      "rebalance": 766870,
+      "perTrade": 3573095,
+      "vsSwap": 70.3
+    },
+    {
+      "bidders": 32,
+      "perEpoch": 2,
+      "commit": 78843,
+      "report": 76201,
+      "settle": 244803,
+      "rebalance": 766870,
+      "perTrade": 1926297,
+      "vsSwap": 37.9
+    },
+    {
+      "bidders": 32,
+      "perEpoch": 10,
+      "commit": 78870,
+      "report": 76201,
+      "settle": 195750,
+      "rebalance": 766870,
+      "perTrade": 595150,
+      "vsSwap": 11.7
+    },
+    {
+      "bidders": 32,
+      "perEpoch": 50,
+      "commit": 78843,
+      "report": 76201,
+      "settle": 185895,
+      "rebalance": 766870,
+      "perTrade": 328843,
+      "vsSwap": 6.5
+    }
+  ],
+  "note": "Gas units. Each row is one epoch run on a fresh contract. Swap is the unprotected baseline."
+}

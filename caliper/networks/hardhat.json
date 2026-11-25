@@ -1,0 +1,27 @@
+{
+    "caliper": {
+        "blockchain": "ethereum",
+        "command": {}
+    },
+    "ethereum": {
+        "url": "ws://127.0.0.1:8545",
+        "contractDeployerAddress": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        "contractDeployerAddressPrivateKey": "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
+        "fromAddress": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        "fromAddressPrivateKey": "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+        "gasPrice": 1000000000,
+        "transactionConfirmationBlocks": 1,
+        "contracts": {
+            "mevres": {
+                "path": "./contracts/Mevres.json",
+                "gas": {
+                    "swap": 200000,
+                    "commit": 300000,
+                    "report": 150000,
+                    "settle": 500000,
+                    "rebalance": 500000
+                }
+            }
+        }
+    }
+}

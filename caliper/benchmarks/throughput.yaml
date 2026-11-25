@@ -1,0 +1,62 @@
+# MEVRES on Hyperledger Caliper: the highest throughput the node sustains per transaction type.
+# Run against a node mining a block every second (BLOCK_TIME_MS=1000, see hardhat.config.js).
+# The maximum-rate controller starts at 100 TPS and raises the send rate by 50 TPS every
+# 2 seconds while throughput keeps up, so each round settles near the node's limit.
+# Same pipeline as config.yaml, five times larger: 1,500 trades, 2 per epoch (750 epochs), 6 bidders.
+# Rounds must stay in this order and use one worker; see workloads/mevres.js.
+# txNumber must equal the number of transactions the round's op produces:
+#   swap, commit, settle: trades   report: epochs x bidders   rebalance: epochs
+simple: &plan
+  trades: 1500
+  tradesPerEpoch: 2
+  bidders: 6
+  seed: 42
+  vol: 0
+
+test:
+  name: mevres-throughput
+  description: Maximum sustained throughput of each MEVRES transaction type and the unprotected swap
+  workers:
+    number: 1
+  rounds:
+    - label: max-swap-unprotected
+      description: Baseline constant-product swap with no MEV protection
+      txNumber: 1500
+      rateControl: &rate
+        type: maximum-rate
+        opts:
+          tps: 100
+          step: 50
+          sampleInterval: 2
+          includeFailed: false
+      workload:
+        module: workloads/mevres.js
+        arguments: { <<: *plan, op: swap, label: max-swap-unprotected }
+    - label: max-commit
+      description: Step 1, hash commitment and AES-256-GCM ciphertext
+      txNumber: 1500
+      rateControl: *rate
+      workload:
+        module: workloads/mevres.js
+        arguments: { <<: *plan, op: commit, label: max-commit }
+    - label: max-report
+      description: Step 2, blind price reports (6 per epoch)
+      txNumber: 4500
+      rateControl: *rate
+      workload:
+        module: workloads/mevres.js
+        arguments: { <<: *plan, op: report, label: max-report }
+    - label: max-settle
+      description: Steps 3-5, verify commitment, second-price auction, bundle check, refund
+      txNumber: 1500
+      rateControl: *rate
+      workload:
+        module: workloads/mevres.js
+        arguments: { <<: *plan, op: settle, label: max-settle }
+    - label: max-rebalance
+      description: End of epoch, auction of the move to the external price
+      txNumber: 750
+      rateControl: *rate
+      workload:
+        module: workloads/mevres.js
+        arguments: { <<: *plan, op: rebalance, label: max-rebalance }

@@ -1,0 +1,22 @@
+{
+  "name": "mevres-caliper",
+  "version": "1.0.0",
+  "description": "Hyperledger Caliper benchmark of the MEVRES contract on a local Ethereum node",
+  "scripts": {
+    "compile": "node scripts/compile.js",
+    "test": "node scripts/smoke-test.js",
+    "node": "hardhat node --port 8545",
+    "bench": "bash run.sh"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@hyperledger/caliper-cli": "0.6.0",
+    "ganache": "7.9.2",
+    "solc": "0.8.28",
+    "web3": "1.2.6",
+    "web3-eea": "0.10.0",
+    "hardhat": "2.22.19"
+  },
+  "private": true
+}

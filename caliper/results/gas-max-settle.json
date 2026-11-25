@@ -1,0 +1,14 @@
+{
+  "label": "max-settle",
+  "transactions": 1500,
+  "gas": {
+    "mean": 119632,
+    "min": 109411,
+    "median": 129621,
+    "max": 163869
+  },
+  "events": {
+    "BundleChecked": 1500,
+    "Settled": 1500
+  }
+}

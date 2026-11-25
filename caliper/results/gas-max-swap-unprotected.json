@@ -1,0 +1,13 @@
+{
+  "label": "max-swap-unprotected",
+  "transactions": 1500,
+  "gas": {
+    "mean": 50873,
+    "min": 50792,
+    "median": 50828,
+    "max": 102141
+  },
+  "events": {
+    "Swapped": 1500
+  }
+}
