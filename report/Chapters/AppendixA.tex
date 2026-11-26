@@ -24,3 +24,5 @@ Figure~\ref{fig:prototype} shows the main view. The left panel holds the paramet
 \section{Reproducing the Results}
 
 All randomness in the market simulation comes from a seeded generator, so every figure in Chapter~\ref{ch:result} can be reproduced. The 1{,}000-run results use seeds 1 to 1{,}000 with the parameters of Table~\ref{tab:sim-params}; the sensitivity and sequencer experiments use seeds 1 to 300 for each setting.
+
+The attacker-strength sweep and the encryption-only ablation of Table~\ref{tab:sim-sweep} are produced by \texttt{prototype/bench/benchmark.mjs}, run with Node.js. The contract, the Caliper configuration and the gas measurements of Section~\ref{sec:onchain} are in the \texttt{caliper} folder of the project repository, and \texttt{caliper/run.sh} reproduces them, writing a summary to \texttt{caliper/results/RESULTS.md}.

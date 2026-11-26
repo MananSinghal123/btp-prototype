@@ -6,8 +6,8 @@ The work has three results.
 
 \begin{itemize}
     \item \textbf{The mechanism has the properties required of it.} We proved that bundles are independent, that truthful reporting is a dominant strategy, that participation is individually rational for arbitrageurs, users and liquidity providers, and that an arbitrageur gains nothing from bidding under several identities.
-    \item \textbf{It is implementable.} A prototype executes the commitment, encryption, secret sharing, auction and bundle for real, and verifies on every run that the commitment binds, that $t$ nodes cannot decrypt, and that the pool returns to its initial state.
-    \item \textbf{It improves outcomes in simulation.} Over 1{,}000 runs against a worst-case attacker, the average cost of trading fell from 164 to 36 basis points, and liquidity provider returns went from a loss in 99\% of runs to a profit in all of them. About 78\% of the auctioned MEV returned to users and 13\% to liquidity providers. A sequencer-based design matches these figures only while its sequencer is honest, and loses about 1.3 basis points of user cost for every percentage point of compromise probability.
+    \item \textbf{It is implementable.} A prototype executes the commitment, encryption, secret sharing, auction and bundle for real, and verifies on every run that the commitment binds, that $t$ nodes cannot decrypt, and that the pool returns to its initial state. A Solidity contract runs the on-chain steps: all 11{,}700 transactions of a Hyperledger Caliper benchmark succeeded, and a trade costs about 10.7 times the gas of a plain swap with six bidders and two trades per epoch, or about 4 times when 50 trades share an epoch.
+    \item \textbf{It improves outcomes in simulation.} Over 1{,}000 runs against a worst-case attacker, the average cost of trading fell from 164 to 36 basis points, and liquidity provider returns went from a loss in 99\% of runs to a profit in all of them. Against an attacker who targets only 5\% of profitable trades the reduction is still 52\%, and the auction halves the cost of encryption alone. About 78\% of the auctioned MEV returned to users and 13\% to liquidity providers. A sequencer-based design matches these figures only while its sequencer is honest, and loses about 1.3 basis points of user cost for every percentage point of compromise probability.
 \end{itemize}
 
 MEVRES does not eliminate the sandwich; it turns it from an attack into a priced service. Arbitrageurs continue to bring external price information into the pool, and are paid a small share for doing so, while the larger share goes back to the parties who would otherwise have borne the cost.
@@ -20,17 +20,17 @@ MEVRES does not eliminate the sandwich; it turns it from an attack into a priced
 
 \paragraph{Key generation.} The protocol assumes distributed key generation. The prototype uses a dealer instead, which would be a single point of trust in a deployment.
 
-\paragraph{Cost and latency.} A submission carries a commitment and a ciphertext, and each block needs a bidding phase and a decryption round. We did not measure the resulting gas cost or delay.
+\paragraph{Cost and latency.} A submission carries a commitment and a ciphertext, and each block needs a bidding phase and a decryption round. We measured the gas on a local chain (Section~\ref{sec:onchain}): about 10.7 times a plain swap per trade with the default settings. That figure is a lower bound, since the contract does not verify decryption shares, uses ledger balances instead of tokens and posts price reports in the clear. The delay the extra rounds add on a public network was not measured.
 
 \paragraph{The refund parameter matters.} Users are always filled at their stated minimum output, so their benefit comes entirely from the refund. With $\alpha=0$ users are slightly worse off than on an unprotected pool. The mechanism protects users only when $\alpha$ is large for sandwich MEV, and when users set slippage tolerances with this in mind.
 
 \paragraph{Competition among arbitrageurs.} The refund equals the second-highest bid, so it shrinks when few arbitrageurs take part. We do not analyse collusion among arbitrageurs, who could agree to bid low, and we do not claim that a user cannot benefit from splitting a trade.
 
-\paragraph{Evaluation.} The results come from a simplified market model with a worst-case attacker. Arbitrageur profit is valued at each bidder's own belief, so the winner's curse is not reflected. Pool depth, volatility and trade sizes were not varied.
+\paragraph{Evaluation.} The economic results come from a simplified market model. The gain over encryption alone assumes that the winning arbitrageur unwinds the trade at the external price at no cost. Arbitrageur profit is valued at each bidder's own belief, so the winner's curse is not reflected. Pool depth, volatility and trade sizes were not varied.
 
 \section{Future Work}
 
-\paragraph{Testnet deployment.} Implementing MEVRES as a smart contract with a real threshold committee would give measurements of gas cost, latency and MEV capture that the simulation cannot.
+\paragraph{Testnet deployment.} The contract has been benchmarked on a local chain. Deploying it on a public testnet with a real threshold committee would measure latency and MEV capture, and verifying decryption shares on-chain and sealing price reports would show how much they add to the gas cost.
 
 \paragraph{Latency.} The decryption round is on the critical path of every block. Batched decryption, and committees chosen to be small without weakening the threshold assumption, are natural directions.
 

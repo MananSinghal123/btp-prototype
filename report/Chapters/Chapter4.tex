@@ -1,6 +1,6 @@
 \section{Overview}
 
-This chapter evaluates MEVRES in two ways. We first assess the protocol qualitatively against a list of criteria derived from the MEV problem. We then report results from a prototype implementation and a market simulation that compares MEVRES with an unprotected DEX over 1{,}000 independent runs, studies two design parameters, and models a sequencer-based design whose sequencer may be compromised.
+This chapter evaluates MEVRES in two ways. We first assess the protocol qualitatively against a list of criteria derived from the MEV problem. We then report results from a prototype implementation and a market simulation that compares MEVRES with an unprotected DEX, whose attacker strength we vary, and with an encrypted mempool that does not redistribute MEV, over 1{,}000 independent runs; studies two design parameters; and models a sequencer-based design whose sequencer may be compromised. Finally, we implement the on-chain part of MEVRES as a Solidity contract and benchmark it with Hyperledger Caliper (Section~\ref{sec:onchain}).
 
 \section{Criteria for Evaluation}
 
@@ -31,7 +31,7 @@ The existing approaches were assessed against these criteria in Chapter~\ref{ch:
 
 \paragraph{MEV distribution.} Step 5 pays $\alpha\cdot p_j$ to the user and $(1-\alpha)\cdot p_j$ to liquidity providers inside the bundle, and the payment for the rebalancing opportunity goes to liquidity providers.
 
-\paragraph{Execution speed.} A trade settles in the block in which it is included, as on an ordinary AMM, so there is no batch window to wait for. The protocol does add work inside the block: a bidding phase and one round of threshold decryption, and each block can complete only once $t+1$ nodes have responded. We did not measure this overhead; it is discussed as a limitation in Chapter~\ref{ch:conclude}.
+\paragraph{Execution speed.} A trade settles in the block in which it is included, as on an ordinary AMM, so there is no batch window to wait for. The protocol does add work inside the block: a bidding phase and one round of threshold decryption, and each block can complete only once $t+1$ nodes have responded. Section~\ref{sec:onchain} measures the gas this work costs; the delay it adds on a public network was not measured and is discussed as a limitation in Chapter~\ref{ch:conclude}.
 
 \section{Simulation Setup}
 \label{sec:sim-setup}
@@ -51,7 +51,7 @@ The prototype approximates the threshold scheme with a dealer: the user generate
 
 \subsection{Market Model}
 
-Two identical constant product pools receive the same stream of trades and face the same external price path. In each block the external price takes a log-normal step, a fixed number of users trade, and the pool is then rebalanced to the external price. Table~\ref{tab:sim-params} lists the default parameters.
+Three identical constant product pools receive the same stream of trades and face the same external price path. In each block the external price takes a log-normal step, a fixed number of users trade, and the pool is then rebalanced to the external price. Table~\ref{tab:sim-params} lists the default parameters.
 
 \begin{table}[h]
 \centering
@@ -85,18 +85,21 @@ Redistribution parameter $\alpha$ & 0.9 \\
 \hline
 Sandwich gas cost (unprotected pool) & 8 USDC \\
 \hline
+Share $\sigma$ of profitable trades sandwiched & 1 (varied in Table~\ref{tab:sim-sweep}) \\
+\hline
 Independent runs & 1{,}000 (different random seeds) \\
 \hline
 \end{tabular}
 \end{table}
 
-The two pools differ only in how MEV is handled.
+The three pools differ only in how MEV is handled.
 \begin{itemize}
-    \item \textbf{Unprotected DEX.} A searcher sandwiches every trade whose extractable value exceeds the gas cost and pushes the user to their minimum output. At the end of each block an arbitrageur moves the pool to the external price and keeps the profit (LVR).
+    \item \textbf{Unprotected DEX.} A searcher sandwiches a share $\sigma$ of the trades whose extractable value exceeds the gas cost, and pushes each to its minimum output. At the end of each block an arbitrageur moves the pool to the external price and keeps the profit (LVR).
+    \item \textbf{Encrypted only.} Trades are hidden, so no searcher can sandwich them, but nothing is auctioned or refunded and the end-of-block arbitrageur keeps its profit. This ablation isolates what the auction adds to the encryption layer.
     \item \textbf{MEVRES.} Every trade is settled through the bundle of Step 4 and its MEV is auctioned. A fraction $\alpha$ of the payment is refunded to the user and the rest to LPs. The end-of-block rebalancing opportunity is auctioned and its payment goes to LPs.
 \end{itemize}
 
-The unprotected baseline is a worst-case attacker: every profitable trade is attacked and the whole slippage tolerance is taken. Sandwich rates observed on real networks are lower, so the gap reported below is an upper bound on the benefit.
+With $\sigma=1$ the unprotected baseline is a worst-case attacker: every profitable trade is attacked and the whole slippage tolerance is taken. Sandwich rates observed on real networks are lower, so the main results use $\sigma=1$ as an upper bound on the benefit, and Section~\ref{sec:sim-sweep} varies $\sigma$.
 
 \subsection{Metrics}
 
@@ -145,7 +148,7 @@ Figure~\ref{fig:sim-cumulative} shows one representative run. The cumulative cos
 \label{fig:sim-cumulative}
 \end{figure}
 
-Table~\ref{tab:sim-results} summarises 1{,}000 independent runs. MEVRES gave a lower user cost and a higher LP profit than the unprotected DEX in every run.
+Table~\ref{tab:sim-results} summarises 1{,}000 independent runs with the worst-case attacker ($\sigma=1$). MEVRES gave a lower user cost and a higher LP profit than the unprotected DEX in every run.
 
 \begin{table}[h]
 \centering
@@ -178,6 +181,34 @@ The average user cost falls from 164.2 bps to 35.9 bps, a reduction of about 78\
 \end{figure}
 
 On the unprotected pool, searchers keep all extracted value. Under MEVRES the auctioned value is split on average as 78.2\% to users, 13.5\% to LPs and 8.4\% to winning arbitrageurs. These shares vary by less than one percentage point across runs.
+
+\subsection{Weaker Attackers and an Encryption-Only Ablation}
+\label{sec:sim-sweep}
+
+The worst-case attacker overstates the benefit of MEVRES, and the comparison with an unprotected DEX does not show how much of the benefit comes from encryption and how much from the auction. Table~\ref{tab:sim-sweep} addresses both, over the same 1{,}000 seeds. It varies the share $\sigma$ of profitable trades that the searcher attacks and adds the encrypted-only pool. The encrypted-only and MEVRES pools do not depend on $\sigma$.
+
+\begin{table}[h]
+\centering
+\caption{User Cost by Attacker Strength $\sigma$, with an Encryption-Only Ablation (1{,}000 runs; mean, with 5th--95th percentile range)}
+\label{tab:sim-sweep}
+\begin{tabular}{|C{1.4cm}|C{2.4cm}|C{3.0cm}|C{2.6cm}|C{2.6cm}|}
+\hline
+\textbf{$\sigma$} & \textbf{Trades sandwiched} & \textbf{Unprotected DEX (bps)} & \textbf{Encrypted only (bps)} & \textbf{MEVRES (bps)} \\
+\hline
+1.00 & 96.1\% & 164.2 \newline (155.5 -- 177.4) & \multirow{4}{*}{\shortstack{70.1\\(62.0 -- 83.0)}} & \multirow{4}{*}{\shortstack{35.9\\(34.5 -- 37.5)}} \\
+\cline{1-3}
+0.50 & 48.0\% & 117.3 \newline (107.5 -- 131.0) & & \\
+\cline{1-3}
+0.20 & 19.2\% & 88.9 \newline (79.5 -- 102.1) & & \\
+\cline{1-3}
+0.05 & 4.8\% & 74.8 \newline (66.2 -- 87.8) & & \\
+\hline
+\end{tabular}
+\end{table}
+
+The reduction in user cost falls from 78\% at $\sigma=1$ to 69\% at $\sigma=0.5$, 60\% at $\sigma=0.2$ and 52\% at $\sigma=0.05$. MEVRES was cheaper for users than the unprotected DEX in every run at every rate, so the main claim survives a much weaker attacker, but the headline figure of Table~\ref{tab:sim-results} is its upper end.
+
+Encryption alone removes outside sandwiches and brings user cost to 70.1 bps. The auction and refund lower it further to 35.9 bps, again in every run. This second gain rests on a modelling assumption that favours MEVRES: the winning arbitrageur unwinds the trade at the external price, at no cost and with no price impact. LP profit on the encrypted-only pool equals that of the unprotected DEX ($-19{,}560$ USDC per run), because a sandwich takes value from the user rather than from the pool. The LPs' gain under MEVRES therefore comes entirely from auctioning the rebalancing opportunity.
 
 \subsection{Sensitivity Analysis}
 
@@ -213,7 +244,7 @@ We varied two parameters one at a time, with 300 runs per setting (Figure~\ref{f
 \end{tabular}
 \end{table}
 
-\paragraph{Redistribution parameter.} The parameter $\alpha$ trades user welfare against LP income (Table~\ref{tab:sim-alpha}). At $\alpha=1$ the user cost is 21.2 bps. At $\alpha=0$ it is 168.8 bps, slightly \emph{worse} than the unprotected pool (164.3 bps): MEVRES always fills the user at their minimum output, and with $\alpha=0$ the whole payment goes to LPs. MEVRES therefore protects users only when $\alpha$ is large for sandwich MEV, which supports the choice made in Step 5.
+\paragraph{Redistribution parameter.} The parameter $\alpha$ trades user welfare against LP income (Table~\ref{tab:sim-alpha}). At $\alpha=1$ the user cost is 21.2 bps. At $\alpha=0$ it is 168.8 bps, slightly \emph{worse} than the unprotected pool (164.3 bps): MEVRES always fills the user at their minimum output, and with $\alpha=0$ the whole payment goes to LPs. MEVRES therefore protects users only when $\alpha$ is large for sandwich MEV, which supports the choice made in Step 5. The dependence on $\alpha$ is linear by construction, since $\alpha$ only splits a payment that does not depend on it.
 
 \begin{table}[h]
 \centering
@@ -271,7 +302,7 @@ When its sequencer is honest, a RediSwap-style mechanism runs the same auction a
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:sim-rediswap} shows that user cost rises linearly with $\rho$, by about 1.3 bps for every percentage point. A fully compromised sequencer leaves users slightly worse off than no protection at all, for the same reason as $\alpha=0$ above. MEVRES keeps the honest-sequencer outcome as long as no more than $t$ of the $n$ nodes are corrupt, which is the practical meaning of removing the single point of failure.
+Table~\ref{tab:sim-rediswap} shows that user cost rises linearly with $\rho$, by about 1.3 bps for every percentage point. The line is an interpolation between the honest and the fully compromised outcome by construction, so it illustrates the failure mode rather than measuring it. A fully compromised sequencer leaves users slightly worse off than no protection at all, for the same reason as $\alpha=0$ above. MEVRES keeps the honest-sequencer outcome as long as no more than $t$ of the $n$ nodes are corrupt, which is the practical meaning of removing the single point of failure.
 
 \subsection{Discussion}
 
@@ -279,8 +310,88 @@ The simulation supports the main claims. Users are better off, because the value
 
 The results have limits.
 \begin{itemize}
-    \item They come from a model, not from a testnet deployment. Gas costs and the latency of threshold decryption are not included.
-    \item The unprotected baseline assumes a worst-case attacker, so the measured gap is an upper bound.
+    \item They come from a model, not from a testnet deployment. The latency of threshold decryption is not included; gas is measured separately in Section~\ref{sec:onchain}.
+    \item The gain over encryption alone assumes that the winning arbitrageur unwinds the trade at the external price at no cost.
     \item Arbitrageur profit is valued at each bidder's own belief. When beliefs are noisy estimates of one true price, the winner tends to be the bidder who overestimated most (the winner's curse), and its realised profit can be lower than its expected profit.
     \item Only the random seed, the number of arbitrageurs, $\alpha$ and $\rho$ were varied. Pool depth, volatility and trade-size distribution were held at the values in Table~\ref{tab:sim-params}.
 \end{itemize}
+
+\section{On-Chain Implementation and Gas Cost}
+\label{sec:onchain}
+
+The simulation measures economic outcomes but not what the mechanism costs to run on a blockchain. We therefore implemented the on-chain part of MEVRES as a Solidity contract and benchmarked it with Hyperledger Caliper.
+
+\subsection{Contract}
+
+The contract has five operations.
+\begin{itemize}
+    \item \textbf{commit} (Step 1) stores the hash commitment and emits the AES-256-GCM ciphertext.
+    \item \textbf{report} (Step 2) stores one arbitrageur's price report for an epoch. An epoch stands for the trades of one block, which share one set of reports.
+    \item \textbf{settle} (Steps 3--5) checks the decrypted trade against its commitment, runs the second-price auction over the epoch's reports, recomputes the bundle legs with Equation~\ref{eq:frontstate} and checks that the user receives exactly the minimum output, and splits the payment between the user and LPs.
+    \item \textbf{rebalance} auctions the move of the pool to the external price, with the payment going to LPs.
+    \item \textbf{swap} is an unprotected constant product swap, used as the baseline.
+\end{itemize}
+
+Threshold decryption stays off-chain: \texttt{settle} receives the plaintext recovered by $t+1$ nodes but does not verify their decryption shares. Assets are ledger balances rather than ERC-20 tokens, and price reports are posted in the clear rather than sealed. Each of these simplifications removes work a deployment would need, so the costs below are lower bounds.
+
+Before benchmarking, the contract was checked against the prototype. On-chain, the single trade of Table~\ref{tab:single-trade} gives the same payment (1{,}217.84 USDC) and refund (1{,}096.05 USDC), a malformed commitment is rejected, reports after the epoch closes are refused, and the rebalance moves the pool to the winning price.
+
+\subsection{Benchmark Setup}
+
+Hyperledger Caliper~0.6.0 was used, the last release with an Ethereum connector, against a local Hardhat node. One worker submitted the same plan as Table~\ref{tab:sim-params}: 300 trades, two per epoch, six bidders. Two runs were made: one at a fixed send rate of 50 transactions per second with a block per transaction, and one five times larger at the highest rate the node sustains, with a block every second.
+
+\subsection{Results}
+
+All 1{,}950 transactions of the first run and all 9{,}750 of the second succeeded. The second run sustained between 83 and 129 transactions per second for every operation, the plain swap included. On a single machine the node, not the contract, sets throughput, so these figures do not separate MEVRES from the baseline. Gas does, and it is the same on any EVM chain.
+
+\begin{table}[h]
+\centering
+\caption{Gas per Operation (Caliper run: 300 trades, 2 per epoch, 6 bidders)}
+\label{tab:gas}
+\begin{tabular}{|L{3.6cm}|C{2.0cm}|C{2.6cm}|C{3.8cm}|}
+\hline
+\textbf{Operation} & \textbf{Count} & \textbf{Mean gas} & \textbf{Paid} \\
+\hline
+swap (baseline) & 300 & 51{,}055 & per trade \\
+\hline
+commit & 300 & 79{,}557 & per trade \\
+\hline
+settle & 300 & 119{,}721 & per trade \\
+\hline
+report & 900 & 78{,}516 & per bidder per epoch \\
+\hline
+rebalance & 150 & 221{,}354 & per epoch \\
+\hline
+\textbf{MEVRES per trade} & & \textbf{545{,}503} & \textbf{10.7$\times$ a swap} \\
+\hline
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:gas} gives gas per operation. Reports and the rebalance auction are paid once per epoch, so their cost per trade falls as more trades share an epoch. With the default settings a trade costs commit $+$ settle $+$ (6 reports $+$ rebalance)$/2 = 545{,}503$ gas, 10.7 times an unprotected swap. A block of 30 million gas then holds about 55 MEVRES trades against 588 swaps.
+
+\begin{table}[h]
+\centering
+\caption{Gas per Trade as a Multiple of an Unprotected Swap (one epoch on a fresh contract)}
+\label{tab:gas-scaling}
+\begin{tabular}{|C{2.4cm}|C{2.2cm}|C{2.2cm}|C{2.2cm}|C{2.2cm}|}
+\hline
+\textbf{Bidders} & \multicolumn{4}{c|}{\textbf{Trades per epoch}} \\
+\cline{2-5}
+ & \textbf{1} & \textbf{2} & \textbf{10} & \textbf{50} \\
+\hline
+2 & 11.6$\times$ & 7.5$\times$ & 4.3$\times$ & 3.7$\times$ \\
+\hline
+6 & 19.4$\times$ & 11.7$\times$ & 5.3$\times$ & 4.0$\times$ \\
+\hline
+12 & 31.2$\times$ & 17.6$\times$ & 6.8$\times$ & 4.6$\times$ \\
+\hline
+24 & 54.6$\times$ & 29.7$\times$ & 9.7$\times$ & 5.7$\times$ \\
+\hline
+32 & 70.3$\times$ & 37.9$\times$ & 11.7$\times$ & 6.5$\times$ \\
+\hline
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:gas-scaling} shows how this multiple moves with the number of bidders and the trades per epoch: from 3.7 times with two bidders and 50 trades per epoch to 70 times with 32 bidders and one trade per epoch. Each entry is one epoch on a fresh contract, so it includes first storage writes; that is why six bidders and two trades per epoch read 11.7 times here, against the 10.7 times averaged over the Caliper run.
+
+At 10 gwei and 3{,}000 USD per ETH, the default costs about 16 USD per trade against 1.5 USD for a swap. For the median trade of 20{,}000 USD this is small next to the simulated saving of 128 bps (about 256 USD) against the worst-case attacker, or 34 bps (about 68 USD) against encryption alone. For small trades, the gas can exceed the saving. The comparison combines two separate models and is only indicative.

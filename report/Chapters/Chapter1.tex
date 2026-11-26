@@ -61,10 +61,10 @@ This dissertation makes the following contributions.
 \begin{enumerate}
     \item \textbf{Protocol.} We design MEVRES, a five-step protocol that combines a hash commitment and threshold encryption with RediSwap's second-price MEV auction, so that no party, including the auction itself, can read a transaction before bids are fixed (Chapter~\ref{ch:new}).
     \item \textbf{Analysis.} We prove bundle independence, dominant-strategy incentive compatibility, individual rationality and bidder-side Sybil-proofness for the mechanism (Section~\ref{sec:properties}).
-    \item \textbf{Prototype.} We implement the protocol as an interactive web application in which hashing, encryption and secret sharing are executed for real (Section~\ref{sec:sim-setup}).
-    \item \textbf{Evaluation.} We simulate MEVRES against an unprotected DEX over 1{,}000 runs, study its sensitivity to the number of bidders and to the refund parameter, and quantify how a sequencer-based design degrades when the sequencer is compromised (Section~\ref{sec:sim-results}).
+    \item \textbf{Implementation.} We implement the protocol as an interactive web application in which hashing, encryption and secret sharing are executed for real (Section~\ref{sec:sim-setup}), and implement its on-chain part as a Solidity contract (Section~\ref{sec:onchain}).
+    \item \textbf{Evaluation.} We simulate MEVRES over 1{,}000 runs against an unprotected DEX whose attacker strength we vary and against an encrypted mempool that does not redistribute MEV, study its sensitivity to the number of bidders and to the refund parameter, and quantify how a sequencer-based design degrades when the sequencer is compromised (Section~\ref{sec:sim-results}). We benchmark the contract with Hyperledger Caliper and measure its gas cost (Section~\ref{sec:onchain}).
 \end{enumerate}
 
 \section{Organization of the Dissertation}
 
-Chapter~\ref{ch:literature} reviews prior work on MEV and its mitigation. Chapter~\ref{ch:new} presents the MEVRES mechanism and its properties. Chapter~\ref{ch:result} evaluates the mechanism qualitatively and by simulation. Chapter~\ref{ch:conclude} concludes and discusses limitations and future work. Appendix~\ref{app:prototype} describes the prototype.
+Chapter~\ref{ch:literature} reviews prior work on MEV and its mitigation. Chapter~\ref{ch:new} presents the MEVRES mechanism and its properties. Chapter~\ref{ch:result} evaluates the mechanism qualitatively, by simulation and on-chain. Chapter~\ref{ch:conclude} concludes and discusses limitations and future work. Appendix~\ref{app:prototype} describes the prototype.
